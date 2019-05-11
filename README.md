@@ -2,4 +2,4 @@
 Unity's published Boids example (from here https://github.com/Unity-Technologies/EntityComponentSystemSamples) 
 extended to a "murmuration of birds".
 
-<img src="docImgs/boidpic.png">
+<img src="docImgs/boidpic.png" width=400>
