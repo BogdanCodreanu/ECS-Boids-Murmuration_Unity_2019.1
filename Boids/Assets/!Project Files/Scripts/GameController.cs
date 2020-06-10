@@ -11,7 +11,7 @@
             ControlCamera
         }
 
-        public GameState CurrentGameState { get; private set; } = GameState.DivePredator;
+        public GameState CurrentGameState { get; set; } = GameState.DivePredator;
 
 
         private static GameController instance;

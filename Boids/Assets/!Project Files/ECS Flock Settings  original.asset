@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a974479daf0b7bc4bb9b1e649aa848ab, type: 3}
-  m_Name: ECS Flock Settings
+  m_Name: ECS Flock Settings  original
   m_EditorClassIdentifier: 
   MoveSpeed: 110
   CellSizeMin: 10
@@ -25,17 +25,17 @@ MonoBehaviour:
   SeparationWeight: 2
   AlignmentWeight: 1
   CohesionWeight: 0.1
-  WalkToFlockCenterWeight: 0
-  maintainYWeight: 0
+  WalkToFlockCenterWeight: 0.007
+  maintainYWeight: 0.001
   yLength: 148.57
   perlinNoiseScale: 0.001
   SphereBoundarySize: 500
-  BoundaryWeight: 1
-  goToTargetsWeight: 0
+  BoundaryWeight: 0
+  goToTargetsWeight: 1
   avoidDistanceObstacles: 650
-  avoidObstaclesWeight: 0
+  avoidObstaclesWeight: 10
   avoidXZwhileHeightBiggerThan: 10
   avoidXZwhileHeightBiggerFade: 20
   obstacleKillRadius: 10
   distanceToAvoidTerrain: 50
-  avoidTerrainWeight: 0
+  avoidTerrainWeight: 100

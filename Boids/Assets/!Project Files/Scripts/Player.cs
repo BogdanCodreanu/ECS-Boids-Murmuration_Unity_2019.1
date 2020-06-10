@@ -55,11 +55,32 @@
         [SerializeField]
         private GameObject projectilePrefab;
 
+        private bool working = false;
+
+        [SerializeField]
+        private Transform mainMenuCameraLook;
+        [SerializeField]
+        private GameObject terrainObject;
+
         private void Awake() {
             entityManager = World.Active.EntityManager;
             transform = gameObject.transform;
             cameraTransform = Camera.main.transform;
             ResetForDiving();
+        }
+
+        public void Disable() {
+            ResetForCameraControl();
+            working = false;
+            cameraTransform.position = mainMenuCameraLook.position;
+            cameraTransform.rotation = mainMenuCameraLook.rotation;
+            terrainObject.SetActive(false);
+        }
+
+        public void Enable() {
+            ResetForDiving();
+            working = true;
+            terrainObject.SetActive(true);
         }
 
         public void ResetForDiving() {
@@ -78,6 +99,9 @@
         }
 
         private void Update() {
+            if (!working)
+                return;
+
             GetInput();
 
 
@@ -106,6 +130,9 @@
         }
 
         private void LateUpdate() {
+            if (!working)
+                return;
+
             RotateCameraByMouse();
         }
 

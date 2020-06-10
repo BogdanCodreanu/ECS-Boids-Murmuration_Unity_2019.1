@@ -1,9 +1,10 @@
 ﻿namespace BogdanCodreanu.ECS {
+
     using System.Collections.Generic;
+    using Unity.Burst;
     using Unity.Collections;
     using Unity.Entities;
     using Unity.Jobs;
-    using Unity.Burst;
     using Unity.Mathematics;
     using Unity.Transforms;
     using UnityEngine;
@@ -11,14 +12,17 @@
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateBefore(typeof(TransformSystemGroup))]
     public class BoidSystem : JobComponentSystem {
+
         /// <summary>
         /// The group of boid entities.
         /// </summary>
         private EntityQuery BoidGroup;
+
         /// <summary>
         /// The group of boid targets entities.
         /// </summary>
         private EntityQuery BoidTargetsGroup;
+
         /// <summary>
         /// The group of boid obstacles entities.
         /// </summary>
@@ -27,44 +31,52 @@
         private EntityCommandBufferSystem barrierCommand;
 
         private List<Boid> UniqueTypes = new List<Boid>(10);
+
         /// <summary>
         /// List of all cells data.
         /// </summary>
         private List<CellsData> _CellsData = new List<CellsData>();
 
-        struct CellsData {
+        private struct CellsData {
+
             /// <summary>
             /// Key is the hash of the "grid block" of a boid's position.
             /// Value is boid index that is inside that position-cell.
             /// All boids that are in the same "cube" share the same key.
             /// </summary>
             public NativeMultiHashMap<int, int> hashMapBlockIndexWithBoidsIndex;
+
             /// <summary>
             /// v[i] = index with the data that contains information about all boids in the same cube
             /// </summary>
             public NativeArray<int> indicesOfCells;
+
             /// <summary>
             /// sum of directions on the specific "block cell".
             /// this must be accesed via indicesOfCells[boidIndex] to get
             /// the data which saves information about all boids in the same cell.
             /// </summary>
             public NativeArray<float3> sumOfDirectionsOnCells;
+
             /// <summary>
             /// sum of positions on the specific "block cell".
             /// this must be accesed via indicesOfCells[boidIndex] to get
             /// the data which saves information about all boids in the same cell.
             /// </summary>
             public NativeArray<float3> sumOfPositionsOnCells;
+
             /// <summary>
             /// nr of boids in this cell.
             /// this must be accesed via indicesOfCells[boidIndex] to get
             /// the data which saves information about all boids in the same cell.
             /// </summary>
             public NativeArray<int> nrOfBoidsOnCells;
+
             /// <summary>
             /// Positions of targets.
             /// </summary>
             public NativeArray<float3> targetsPositions;
+
             /// <summary>
             /// Indices of closest boid target via cells.
             /// </summary>
@@ -74,10 +86,12 @@
             /// Positions of obstacles.
             /// </summary>
             public NativeArray<float3> obstaclesPositions;
+
             /// <summary>
             /// Indices of closest obstacle via cells.
             /// </summary>
             public NativeArray<int> closestObstacleIndices;
+
             /// <summary>
             /// Distance to the closest obstacle via cells.
             /// </summary>
@@ -88,7 +102,7 @@
         /// Save all the entity positions in a buffer
         /// </summary>
         [BurstCompile]
-        struct CopyPositionsInBuffer : IJobForEachWithEntity<LocalToWorld> {
+        private struct CopyPositionsInBuffer : IJobForEachWithEntity<LocalToWorld> {
             public NativeArray<float3> positionsResult;
 
             public void Execute(Entity entity, int index, [ReadOnly]ref LocalToWorld localToWorld) {
@@ -100,7 +114,7 @@
         /// Sum all the boids position in a float
         /// </summary>
         [BurstCompile]
-        struct SumPositions : IJobForEach<LocalToWorld> {
+        private struct SumPositions : IJobForEach<LocalToWorld> {
             public float3 positionsSum;
 
             public void Execute([ReadOnly]ref LocalToWorld localToWorld) {
@@ -112,7 +126,7 @@
         /// Save all the entity headings in a buffer
         /// </summary>
         [BurstCompile]
-        struct CopyHeadingsInBuffer : IJobForEachWithEntity<LocalToWorld> {
+        private struct CopyHeadingsInBuffer : IJobForEachWithEntity<LocalToWorld> {
             public NativeArray<float3> headingsResult;
 
             public void Execute(Entity entity, int index, [ReadOnly]ref LocalToWorld localToWorld) {
@@ -120,10 +134,9 @@
             }
         }
 
-
         [BurstCompile]
         [RequireComponentTag(typeof(Boid))]
-        struct HashPositionsToHashMap : IJobForEachWithEntity<LocalToWorld> {
+        private struct HashPositionsToHashMap : IJobForEachWithEntity<LocalToWorld> {
             public NativeMultiHashMap<int, int>.Concurrent hashMap;
             [ReadOnly] public float3 positionOffsetVary;
             [ReadOnly] public float cellRadius;
@@ -140,7 +153,7 @@
         /// Job to select and calculate data for this cell in space
         /// </summary>
         [BurstCompile]
-        struct MergeCellsJob : IJobNativeMultiHashMapMergedSharedKeyIndices {
+        private struct MergeCellsJob : IJobNativeMultiHashMapMergedSharedKeyIndices {
             public NativeArray<int> indicesOfCells;
             public NativeArray<float3> cellAlignment;
             public NativeArray<float3> cellPositions;
@@ -152,12 +165,21 @@
             public NativeArray<int> closestObstacleIndexToCells;
             public NativeArray<float> closestObstacleSqDistanceToCells;
 
+            public struct IntFloat {
 
-            public (int nearestPositionIndex, float sqDistanceToNearest) CalculateIndexOfClosestPosition
-                (NativeArray<float3> searchedPositions, float3 position) {
+                public IntFloat(int i1, float f1) {
+                    i = i1;
+                    f = f1;
+                }
+
+                public int i;
+                public float f;
+            }
+
+            public IntFloat CalculateIndexOfClosestPosition(NativeArray<float3> searchedPositions, float3 position) {
                 int nearestPositionIndex = 0;
                 if (searchedPositions.Length == 0) {
-                    return (-1, 0);
+                    return new IntFloat(-1, 0);
                 }
                 float nearestDistanceSq = math.lengthsq(position - searchedPositions[0]);
 
@@ -170,7 +192,7 @@
                     nearestPositionIndex = math.select(nearestPositionIndex, i, isThisNearer);
                 }
 
-                return (nearestPositionIndex, nearestDistanceSq);
+                return new IntFloat(nearestPositionIndex, nearestDistanceSq);
             }
 
             // index is the first value encountered at a hash.
@@ -179,19 +201,19 @@
             public void ExecuteFirst(int firstBoidIndexEncountered) {
                 indicesOfCells[firstBoidIndexEncountered] = firstBoidIndexEncountered;
 
-
                 float3 positionInThisCell = cellPositions[firstBoidIndexEncountered] / cellCount[firstBoidIndexEncountered];
 
                 // calculate index of the closest target
-                (closestTargetIndexToCells[firstBoidIndexEncountered], _) =
-                    CalculateIndexOfClosestPosition(targetsPositions, positionInThisCell);
+                var targetsResult = CalculateIndexOfClosestPosition(targetsPositions, positionInThisCell);
+                closestTargetIndexToCells[firstBoidIndexEncountered] = targetsResult.i;
 
-                (closestObstacleIndexToCells[firstBoidIndexEncountered], closestObstacleSqDistanceToCells[firstBoidIndexEncountered]) =
-                    CalculateIndexOfClosestPosition(obstaclesPositions, positionInThisCell);
+                var obstaclesResult = CalculateIndexOfClosestPosition(obstaclesPositions, positionInThisCell);
+                closestObstacleIndexToCells[firstBoidIndexEncountered] = obstaclesResult.i;
+                closestObstacleSqDistanceToCells[firstBoidIndexEncountered] = obstaclesResult.f;
             }
 
             // first is the value that was first encountered
-            // at with the same hash as index. 
+            // at with the same hash as index.
             // we store all the data using the first's index.
             // these values are entity indices.
             public void ExecuteNext(int firstBoidIndexWithTheSameKey, int boidIndexEncountered) {
@@ -207,7 +229,7 @@
 
         [BurstCompile]
         [RequireComponentTag(typeof(Boid))]
-        struct MoveBoids : IJobForEachWithEntity<LocalToWorld> {
+        private struct MoveBoids : IJobForEachWithEntity<LocalToWorld> {
             [ReadOnly] public NativeArray<int> cellIndices;
             [ReadOnly] public float separationWeight;
             [ReadOnly] public float alignmentWeight;
@@ -257,7 +279,6 @@
                 var sumOfAlignments = cellAlignment[cellIndex];
                 var sumOfPositionsInCell = cellPositions[cellIndex];
 
-
                 // -------------------- alignment
                 var alignmentResult = math.normalizesafe((sumOfAlignments - forward) / (boidsCountInSameCell - 1)) * alignmentWeight;
 
@@ -292,7 +313,6 @@
                 // -------------------- walk to center of flock
                 var walkToFlockCenterResult = (sumOfAllPositions / nrOfTotalBoids - currentPosition) *
                     walkToFlockCenterWeight;
-
 
                 // -------------------- y limitations
                 float flockYAvg = (sumOfAllPositions / nrOfTotalBoids).y;
@@ -353,8 +373,6 @@
                                 math.normalizesafe(currentPosition - positionWithSameHeightAsI) * avoidObstaclesWeight
                                 * needToEvade * needToUseXZ;
                         }
-                        
-
                     }
                 }
 
@@ -366,7 +384,6 @@
                     goUpResult = math.pow(goUpResult, 3);
                     avoidTerrainResult = new float3(0, goUpResult * avoidTerrainWeight, 0);
                 }
-
 
                 // -------------------- final result -------------
                 var headingResult = math.normalizesafe(forward +
@@ -390,7 +407,6 @@
             }
         }
 
-
         private void DisposeCellData(CellsData cell) {
             cell.hashMapBlockIndexWithBoidsIndex.Dispose();
             cell.indicesOfCells.Dispose();
@@ -413,7 +429,8 @@
         }
 
         protected override JobHandle OnUpdate(JobHandle inputDeps) {
-            ECSFlockSettings settings = ECSController.FlockParams;
+            var settings = ECSController.FlockParams;
+            var gameSettings = GlobalSettings.Instance;
 
             EntityManager.GetAllUniqueSharedComponentData(UniqueTypes);
 
@@ -428,7 +445,6 @@
 
                 var boidCount = BoidGroup.CalculateLength();
                 UIControl.Instance.NrOfBoidsAlive = boidCount;
-
 
                 var cacheIndex = typeIndex - 1;
                 // containers that store all the data.
@@ -471,7 +487,6 @@
                 };
                 var sumPositionsJobHandle = sumPositionsJob.Schedule(BoidGroup, inputDeps);
 
-
                 // copy targets positions
                 var copyPositionsOfTargetsJob = new CopyPositionsInBuffer {
                     positionsResult = targetsPositions
@@ -483,7 +498,6 @@
                     positionsResult = obstaclesPositions
                 };
                 var copyPositionsOfObstaclesJobHandle = copyPositionsOfObstaclesJob.Schedule(BoidObstaclesGroup, inputDeps);
-
 
                 var newCellData = new CellsData {
                     indicesOfCells = cellIndices,
@@ -547,34 +561,34 @@
 
                 var steerJob = new MoveBoids {
                     cellIndices = newCellData.indicesOfCells,
-                    alignmentWeight = settings.AlignmentWeight,
-                    separationWeight = settings.SeparationWeight,
-                    cohesionWeight = settings.CohesionWeight,
+                    alignmentWeight = gameSettings.AlignmentWeight,
+                    separationWeight = gameSettings.SeparationWeight,
+                    cohesionWeight = gameSettings.CohesionWeight,
                     cellSize = ECSController.Instance.CellSizeVaried,
-                    sphereBoundarySize = settings.SphereBoundarySize,
-                    sphereBoundaryWeight = settings.BoundaryWeight,
-                    moveSpeed = settings.MoveSpeed,
+                    sphereBoundarySize = gameSettings.SphereBoundarySize,
+                    sphereBoundaryWeight = gameSettings.BoundaryWeight,
+                    moveSpeed = gameSettings.MoveSpeed,
                     cellAlignment = cellAlignment,
                     cellPositions = cellPositions,
                     cellCount = cellCount,
                     dt = Time.deltaTime,
-                    walkToFlockCenterWeight = settings.WalkToFlockCenterWeight,
+                    walkToFlockCenterWeight = gameSettings.WalkToFlockCenterWeight,
                     sumOfAllPositions = sumOfAllBoidsPositions,
                     nrOfTotalBoids = boidCount,
-                    maintainYWeight = settings.maintainYWeight,
-                    yLength = settings.yLength,
+                    maintainYWeight = gameSettings.maintainYWeight,
+                    yLength = gameSettings.yLength,
                     perlinNoiseScale = settings.perlinNoiseScale,
                     targetsPositions = targetsPositions,
                     cellClosestTargetsIndices = closestTargetIndices,
-                    goToTargetsWeight = settings.goToTargetsWeight,
+                    goToTargetsWeight = gameSettings.goToTargetsWeight,
                     obstaclesPositions = obstaclesPositions,
                     cellClosestObstaclesIndices = closestObstacleIndices,
                     cellClosestObstaclesSqDistances = closestObstacleSqDistances,
-                    startAvoidingObstacleAtDistance = settings.avoidDistanceObstacles,
-                    avoidObstaclesWeight = settings.avoidObstaclesWeight,
+                    startAvoidingObstacleAtDistance = gameSettings.avoidDistanceObstacles,
+                    avoidObstaclesWeight = gameSettings.avoidObstaclesWeight,
                     terrainY = ECSController.TerrainY,
                     distanceToAvoidTerrain = settings.distanceToAvoidTerrain,
-                    avoidTerrainWeight = settings.avoidTerrainWeight,
+                    avoidTerrainWeight = gameSettings.avoidTerrainWeight,
                     avoidXZwhileHeightBiggerThan = settings.avoidXZwhileHeightBiggerThan,
                     avoidXZwhileHeightBiggerFade = settings.avoidXZwhileHeightBiggerFade,
                     obstacleKillRadius = settings.obstacleKillRadius,

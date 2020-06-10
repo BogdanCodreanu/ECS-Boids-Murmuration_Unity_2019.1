@@ -28,10 +28,17 @@
         [SerializeField]
         private Terrain worldTerrain;
 
-        public static ECSFlockSettings FlockParams => Instance.flockSettings;
+        private ECSFlockSettings flockSettings2;
+        public static ECSFlockSettings FlockParams => Instance.flockSettings2 ?? Instance.flockSettings;
         private float varySpeedOffset1, varySpeedOffset2, varySpeedOffset3;
 
         public static float TerrainY { get; private set; }
+
+        private void Awake() {
+            //var flockSettings2 = Instantiate(FlockParams);
+            var flockSettings2 = FlockParams;
+        }
+
         private void Start() {
             TerrainY = worldTerrain.GetPosition().y;
         }
